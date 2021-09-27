@@ -1,0 +1,38 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="UTF-8">
+    <meta http-equiv="X-UA-Compatible" content="IE=edge">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <link href="//maxcdn.bootstrapcdn.com/bootstrap/4.1.1/css/bootstrap.min.css" rel="stylesheet" id="bootstrap-css">
+    <script src="//maxcdn.bootstrapcdn.com/bootstrap/4.1.1/js/bootstrap.min.js"></script>
+    <script src="//cdnjs.cloudflare.com/ajax/libs/jquery/3.2.1/jquery.min.js"></script>
+    <title>Document</title>
+</head>
+
+<body><br>
+    {{>navbar}}
+    <h1>
+        SignUp Page
+    </h1>
+    <form action="/user" method="POST">
+        <label for="username">UserName</label>
+        <input type="text" id="username" name="username"><br>
+        <label for="password">Password</label>
+        <input type="password" id="password" name="password"><br>
+        <label for="confirmpassword">Confirm Password</label>
+        <input type="password" id="confirmpassword" name="confirmpassword"><br>
+        <label for="phone">Mobile No</label>
+        <input type="text" name="phone" id="phone"><br>
+        <label for="email">Email</label>
+        <input type="text" name="email" id="email"><br>
+        <input type="submit" value="Register">
+    </form><br><br>
+    <ul>
+        <li><a href="/">Home</a></li>
+        <li><a href="/login">login</a></li>
+    </ul>
+</body>
+
+</html>
