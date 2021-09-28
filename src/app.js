@@ -13,63 +13,45 @@ const email = require("./middleware/mailer");
 const mongoose = require("mongoose");
 const _ = require("lodash");
 
-// console.log(`Hi! Auth is ${auth} and email is ${email}`);
 
 require("./db/conn.js");
 const User = require("./models/users");
 const Reader = require("./models/readers");
 const m = require("./models/books");
-const { count } = require('console');
 const e = require('express');
 const Book = m[0];
 const Author = m[1];
 
 const port = process.env.PORT || 3000;
-const static_path = path.join(__dirname, "../public");
-const template_path = path.join(__dirname, "../templates/views");
-const partials_path = path.join(__dirname, "../templates/partials");
 
 app.use(express.json());
 app.use(cookieParser());
 app.use(express.urlencoded({ extended: false }));
 
-app.use(express.static(static_path));
-app.set("view engine", "hbs");
-app.set("views", template_path);
-hbs.registerPartials(partials_path);
-
-// console.log(process.env.SECRET_KEY);
-
 app.get("/", (req, res) => {
     res.render("index")
 });
 
-app.post("/logout", auth, async (req, res) => {
-    try {
-        //console.log(req.user);
-        req.user.tokens = [];
-        res.clearCookie("jwt");
-        //console.log('logged out');
-        await req.user.save();
-        res.send('you have been logged out');
-    }
-    catch (error) {
-        res.status(500).send(error);
-    }
-});
+//Logout method is removed as it is being handled by the front end
+// app.post("/logout", auth, async (req, res) => {
+//     try {
+//         //console.log(req.user);
+//         req.user.tokens = [];
+//         res.clearCookie("jwt");
+//         //console.log('logged out');
+//         await req.user.save();
+//         res.send('you have been logged out');
+//     }
+//     catch (error) {
+//         res.status(500).send(error);
+//     }
+// });
 
-app.get("/user", (req, res) => {
-    res.render("user")
-})
-
-app.get("/login", (req, res) => {
-    res.render("login")
-})
 
 app.get("/confirm/:user/:token", async (req, res) => {
     try {
-        let user = (req.params.user);
-        let token = (req.params.token);
+        let user = req.params.user;
+        let token = req.params.token;
         const foundUser = await User.findOne({ username: user });
         if (token === foundUser.confirmationCode) {
             await User.findOneAndUpdate({ username: user }, { active: 1, updatedAt: new Date() });
@@ -157,43 +139,44 @@ app.post("/resetpassword/:user/:token", async (req, res) => {
     }
 })
 
-app.post("/login", async (req, res) => {
-    try {
-        const username = req.body.username;
-        const password = req.body.password;
+// Removing the login method as signin method is used now.
+// app.post("/login", async (req, res) => {
+//     try {
+//         const username = req.body.username;
+//         const password = req.body.password;
 
-        const useremail = await User.findOne({ username: username });
-        if (useremail.active == 1) {
-            // console.log(`password by user is ${password}`);
-            const isMatch = await bcrypt.compare(password, useremail.password);
+//         const useremail = await User.findOne({ username: username });
+//         if (useremail.active == 1) {
+//             // console.log(`password by user is ${password}`);
+//             const isMatch = await bcrypt.compare(password, useremail.password);
 
-            const token1 = await useremail.generateAuthToken();
-            const token = token1[0];
-            console.log(token);
-            const exp_time1 = Number(process.env.EXPIRY_TIME);
-            const exp_time = new Date(Date.now() + exp_time1);
-            if (token != '') {
-                res.cookie('jwt', token, {
-                    expires: exp_time,
-                    httpOnly: true
-                });
-            }
-            if (isMatch) {
-                res.status(201).send(token1[1]);
-            }
-            else {
-                res.send(`Wrong password`);
-            }
-        }
-        else {
-            res.send(`Please activate the acc first`);
-        }
+//             const token1 = await useremail.generateAuthToken();
+//             const token = token1[0];
+//             console.log(token);
+//             const exp_time1 = Number(process.env.EXPIRY_TIME);
+//             const exp_time = new Date(Date.now() + exp_time1);
+//             if (token != '') {
+//                 res.cookie('jwt', token, {
+//                     expires: exp_time,
+//                     httpOnly: true
+//                 });
+//             }
+//             if (isMatch) {
+//                 res.status(201).send(token1[1]);
+//             }
+//             else {
+//                 res.send(`Wrong password`);
+//             }
+//         }
+//         else {
+//             res.send(`Please activate the acc first`);
+//         }
 
-    }
-    catch (e) {
-        res.status(400).send("Invalid Username")
-    }
-})
+//     }
+//     catch (e) {
+//         res.status(400).send("Invalid Username")
+//     }
+// })
 //signin and signout trial starts
 app.post("/signin", async (req, res) => {
     try {
@@ -201,7 +184,7 @@ app.post("/signin", async (req, res) => {
         const password = req.body.password;
 
         const useremail = await User.findOne({ username: username });
-        if (useremail.active == 1) {
+        if (useremail.active) {
             // console.log(`password by user is ${password}`);
             const isMatch = await bcrypt.compare(password, useremail.password);
 
@@ -231,10 +214,11 @@ app.post("/signin", async (req, res) => {
 app.post("/user", email, async (req, res) => {
     // app.post("/user", async (req, res) => {
     try {
-        const password = req.body.password;
-        const cpassword = req.body.confirmpassword;
-        const emailid = req.body.email;
-        const username = req.body.username;
+        // const password = req.body.password;
+        // const cpassword = req.body.confirmpassword;
+        // const emailid = req.body.email;
+        // const username = req.body.username;
+        const { password, cpassword, emailid, username } = req.body;
         if (password === cpassword) {
             const characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
             var confirmationCode = '';
