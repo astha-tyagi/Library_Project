@@ -17,10 +17,12 @@ const _ = require("lodash");
 require("./db/conn.js");
 const User = require("./models/users");
 const Reader = require("./models/readers");
-const m = require("./models/books");
+const Author = require("./models/authors");
+const Book = require("./models/books");
 const e = require('express');
-const Book = m[0];
-const Author = m[1];
+// const Book = m[0];
+// const Author = m[1];
+
 
 const port = process.env.PORT || 3000;
 
@@ -54,7 +56,7 @@ app.get("/confirm/:user/:token", async (req, res) => {
         let token = req.params.token;
         const foundUser = await User.findOne({ username: user });
         if (token === foundUser.confirmationCode) {
-            await User.findOneAndUpdate({ username: user }, { active: 1, updatedAt: new Date() });
+            await User.updateOne({ username: user }, { active: 1 });
             res.status(200).send(`${user} is now an active user`);
         }
         else {
@@ -122,7 +124,7 @@ app.post("/resetpassword/:user/:token", async (req, res) => {
             const cnewpass = req.body.confirmpassword;
             if (newpass == cnewpass) {
                 const pass = await bcrypt.hash(newpass, 10);
-                await User.findOneAndUpdate({ username: user }, { password: pass, tokens: [], updatedAt: new Date() });
+                await User.findOneAndUpdate({ username: user }, { password: pass, tokens: [] });
                 // console.log(res);
                 res.status(200).send(`Password updated!`);
             }
@@ -177,7 +179,6 @@ app.post("/resetpassword/:user/:token", async (req, res) => {
 //         res.status(400).send("Invalid Username")
 //     }
 // })
-//signin and signout trial starts
 app.post("/signin", async (req, res) => {
     try {
         const username = req.body.username;
@@ -187,15 +188,14 @@ app.post("/signin", async (req, res) => {
         if (useremail.active) {
             // console.log(`password by user is ${password}`);
             const isMatch = await bcrypt.compare(password, useremail.password);
-
-            const token1 = await useremail.generateAuthToken();
-            const token = token1[0];
-            const exp_time1 = Number(process.env.EXPIRY_TIME);
-            const exp_time = new Date(Date.now() + exp_time1);
             // console.log(token);
             if (isMatch) {
+                const tokenAndMessage = await useremail.generateAuthToken();
+                const token = tokenAndMessage[0];
+                const exp_time1 = Number(process.env.EXPIRY_TIME);
+                const exp_time = new Date(Date.now() + exp_time1);
                 res.setHeader('x-access-token', token)
-                res.status(201).send(token1[1]);
+                res.status(201).send(tokenAndMessage[1]);
             }
             else {
                 res.send(`Wrong password`);
@@ -210,7 +210,7 @@ app.post("/signin", async (req, res) => {
         res.status(400).send("Invalid Username")
     }
 })
-//signin and signout trial ends
+
 app.post("/user", email, async (req, res) => {
     // app.post("/user", async (req, res) => {
     try {
@@ -218,6 +218,7 @@ app.post("/user", email, async (req, res) => {
         // const cpassword = req.body.confirmpassword;
         // const emailid = req.body.email;
         // const username = req.body.username;
+        console.log('here');
         const { password, cpassword, emailid, username } = req.body;
         if (password === cpassword) {
             const characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
@@ -234,50 +235,48 @@ app.post("/user", email, async (req, res) => {
                 confirmpassword: pwd,
                 phone: req.body.phone,
                 email: req.body.email,
-                confirmationCode: confirmationCode,
-                createdAt: date,
-                updatedAt: date
+                confirmationCode: confirmationCode
             })
             // console.log(registerUser);
 
             //remove comments from here
-            async function main() {
-                let testAccount = await nodemailer.createTestAccount();
+            // async function main() {
+            let testAccount = await nodemailer.createTestAccount();
 
-                var transporter = nodemailer.createTransport({
-                    host: process.env.EMAIL_HOST,
-                    name: process.env.EMAIL_NAME,
-                    port: process.env.EMAIL_PORT,
-                    type: process.env.EMAIL_TYPE,
-                    auth: {
-                        user: process.env.EMAIL_USER,
-                        pass: process.env.EMAIL_PASSWD
-                    }
-                });
+            var transporter = nodemailer.createTransport({
+                host: process.env.EMAIL_HOST,
+                name: process.env.EMAIL_NAME,
+                port: process.env.EMAIL_PORT,
+                type: process.env.EMAIL_TYPE,
+                auth: {
+                    user: process.env.EMAIL_USER,
+                    pass: process.env.EMAIL_PASSWD
+                }
+            });
 
-                var email_content = `<h1>Email Confirmation</h1>
+            var email_content = `<h1>Email Confirmation</h1>
                 <h2>Hello ${username}!</h2>
                 <p>Thank you for subscribing. Please confirm your email by clicking on the following link</p><br>
                 <a href=http://localhost:3000/confirm/${username}/${confirmationCode}> Click here</a>`;
-                let mailOptions = {
-                    from: process.env.EMAIL_FROM,
-                    to: emailid,
-                    subject: "Test Welcome",
-                    html: email_content,
-                }
-
-                transporter.sendMail(mailOptions, function (err, data) {
-                    if (err) {
-                        console.log('email could not be sent');
-                    }
-                    else {
-                        console.log('email sent');
-                    }
-                });
-
+            let mailOptions = {
+                from: process.env.EMAIL_FROM,
+                to: emailid,
+                subject: "Test Welcome",
+                html: email_content,
             }
 
-            main().catch(console.error);
+            transporter.sendMail(mailOptions, function (err, data) {
+                if (err) {
+                    console.log('email could not be sent');
+                }
+                else {
+                    console.log('email sent');
+                }
+            });
+
+            // }
+
+            // main().catch(console.error);
             //email trial ends
 
             //remove comments till here
@@ -446,7 +445,7 @@ app.patch("/editBookDetails", async (req, res) => {
 
     const resBook = await Book.findOneAndUpdate(
         { _id: bookID },
-        { bookName, qty, updatedAt: new Date() }
+        { bookName, qty }
     );
     res.status(200).send(resBook);
 })
@@ -506,7 +505,7 @@ app.patch("/issueBook", async (req, res) => {
         if (!_.isUndefined(rid)) {
             const resReader = await Reader.findOneAndUpdate(
                 { _id: rid },
-                { books: books_arr, updatedAt: new Date(), due_date: dueDate_arr }
+                { books: books_arr, due_date: dueDate_arr }
             );
             res.status(200).send(resReader);
         }
@@ -532,7 +531,8 @@ app.patch("/returnBook", async (req, res) => {
             // if (books_arr.includes(book[i])) {
             // console.log('here');
             var book1 = await Book.findOneAndUpdate({ _id: book[i] },
-                { $inc: { qty: +1 } }, { updatedAt: new Date() });
+                { $inc: { qty: +1 } });
+            // { $inc: { qty: +1 } }, { updatedAt: new Date() });
 
             books_arr.splice((resReader1.books).indexOf(book[i]), 1);
             due_dates.splice((resReader1.books).indexOf(book[i]), 1);
@@ -543,7 +543,7 @@ app.patch("/returnBook", async (req, res) => {
         }
 
         const resReader2 = await Reader.findOneAndUpdate({ _id: rid },
-            { books: books_arr, due_date: due_dates, updatedAt: new Date() });
+            { books: books_arr, due_date: due_dates });
 
         // console.log(typeof x);
         // for (let i = 0; i < 1; i++) {

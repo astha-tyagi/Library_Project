@@ -21,18 +21,19 @@ const booksSchema = new mongoose.Schema(
         },
         genre: {
             type: String
-        },
-        createdAt: {
-            type: Date,
-            required: true,
-            default: Date.now
-        },
-        updatedAt: {
-            type: Date,
-            required: true,
-            default: Date.now
         }
-    }
+        // ,
+        // createdAt: {
+        //     type: Date,
+        //     required: true,
+        //     default: Date.now
+        // },
+        // updatedAt: {
+        //     type: Date,
+        //     required: true,
+        //     default: Date.now
+        // }
+    }, { timestamps: {} }
 )
 
 
@@ -45,5 +46,5 @@ const booksSchema = new mongoose.Schema(
 // })
 
 const Book = new mongoose.model("Book", booksSchema);
-module.exports = [Book, Author];
+module.exports = Book;
 // module.exports = Author;

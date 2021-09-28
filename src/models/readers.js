@@ -10,18 +10,19 @@ const readerSchema = new mongoose.Schema({
     }],
     due_date: [{
         type: Date
-    }],
-    createdAt: {
-        type: Date,
-        required: true,
-        default: Date.now
-    },
-    updatedAt: {
-        type: Date,
-        required: true,
-        default: Date.now
-    }
-})
+    }]
+    // ,
+    // createdAt: {
+    //     type: Date,
+    //     required: true,
+    //     default: Date.now
+    // },
+    // updatedAt: {
+    //     type: Date,
+    //     required: true,
+    //     default: Date.now
+    // }
+}, { timestamps: {} })
 
 const Reader = new mongoose.model("Reader", readerSchema);
 module.exports = Reader;

@@ -37,16 +37,16 @@ const userSchema = new mongoose.Schema(
         resetToken: {
             type: String
         },
-        createdAt: {
-            type: Date,
-            required: true,
-            default: Date.now
-        },
-        updatedAt: {
-            type: Date,
-            required: true,
-            default: Date.now
-        },
+        // createdAt: {
+        //     type: Date,
+        //     required: true,
+        //     default: Date.now
+        // },
+        // updatedAt: {
+        //     type: Date,
+        //     required: true,
+        //     default: Date.now
+        // },
         tokens: [{
             token: {
                 type: String,
@@ -54,7 +54,7 @@ const userSchema = new mongoose.Schema(
             }
         }]
 
-    }
+    }, { timestamps: {} }
 )
 userSchema.methods.generateAuthToken = async function () {
     try {
