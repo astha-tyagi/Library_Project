@@ -12,6 +12,7 @@ const auth = require("./middleware/auth");
 const email = require("./middleware/mailer");
 const mongoose = require("mongoose");
 const _ = require("lodash");
+const emailsender = require("./config/nodemailer.config");
 
 
 require("./db/conn.js");
@@ -34,21 +35,47 @@ app.get("/", (req, res) => {
     res.render("index")
 });
 
-//Logout method is removed as it is being handled by the front end
-// app.post("/logout", auth, async (req, res) => {
-//     try {
-//         //console.log(req.user);
-//         req.user.tokens = [];
-//         res.clearCookie("jwt");
-//         //console.log('logged out');
-//         await req.user.save();
-//         res.send('you have been logged out');
-//     }
-//     catch (error) {
-//         res.status(500).send(error);
-//     }
-// });
+app.post("/user", async (req, res) => {
 
+    try {
+        const { password, cpassword, emailid, username, phone } = req.body;
+
+        if (password === cpassword) {
+            const characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
+            var confirmationCode = '';
+            for (let i = 0; i < 25; i++) {
+                confirmationCode += characters[Math.floor(Math.random() * characters.length)];
+            }
+
+            var pwd = req.body.password;
+            const registerUser = new User({
+                username: username,
+                password: password,
+                phone: phone,
+                email: emailid,
+                confirmationCode: confirmationCode
+            })
+
+            var email_content = `<h1>Email Confirmation</h1>
+                    <h2>Hello ${username}!</h2>
+                    <p>Thank you for subscribing. Please confirm your email by clicking on the following link</p><br>
+                    <a href=http://localhost:3000/confirm/${username}/${confirmationCode}> Click here</a>`;
+
+            emailsender.sendemail(emailid, email_content);
+
+            const registered = await registerUser.save();
+            res.status(201).send(`User Created Successfully!
+                Please activate account using link received in your inbox!`);
+        }
+
+        else {
+            res.send("Passwords do not match");
+        }
+    }
+    catch (error) {
+        res.status(400).send(error);
+    }
+})
 
 app.get("/confirm/:user/:token", async (req, res) => {
     try {
@@ -68,117 +95,6 @@ app.get("/confirm/:user/:token", async (req, res) => {
     }
 })
 
-app.post("/forgotpassword", async (req, res) => {
-    const uemail = req.body.email;
-    async function main() {
-        let testAccount = await nodemailer.createTestAccount();
-
-        var transporter = nodemailer.createTransport({
-            host: process.env.EMAIL_HOST,
-            name: process.env.EMAIL_NAME,
-            port: process.env.EMAIL_PORT,
-            type: process.env.EMAIL_TYPE,
-            auth: {
-                user: process.env.EMAIL_USER,
-                pass: process.env.EMAIL_PASSWD
-            }
-        });
-
-        const resetToken = crypto.randomBytes(20).toString('hex');
-        const user = await User.findOneAndUpdate({ email: uemail }, { resetToken: resetToken });
-
-        var email_content = `<h1>Reset Password</h1>
-        <h2>Hello there!</h2>
-        <p>Reset your password by clicking down below!</p><br>
-        <a href=http://localhost:3000/resetpassword/${user.username}/${resetToken}> Click here</a>`;
-        let mailOptions = {
-            from: process.env.EMAIL_FROM,
-            to: uemail,
-            subject: "Test Forgot",
-            html: email_content,
-        }
-
-        transporter.sendMail(mailOptions, function (err, data) {
-            if (err) {
-                console.log('email could not be sent');
-            }
-            else {
-                console.log('email sent');
-            }
-        });
-
-    }
-
-    main().catch(console.error);
-    res.send(`Please check your email for a link to reset password!`);
-})
-
-app.post("/resetpassword/:user/:token", async (req, res) => {
-    try {
-        let user = (req.params.user);
-        let token = (req.params.token);
-        const foundUser = await User.findOne({ username: user });
-        if (token == foundUser.resetToken) {
-
-            const newpass = req.body.password;
-            const cnewpass = req.body.confirmpassword;
-            if (newpass == cnewpass) {
-                const pass = await bcrypt.hash(newpass, 10);
-                await User.findOneAndUpdate({ username: user }, { password: pass, tokens: [] });
-                // console.log(res);
-                res.status(200).send(`Password updated!`);
-            }
-            else {
-                res.send('Passwords do not match');
-            }
-        }
-        else {
-            res.send('Wrong Token');
-        }
-    }
-    catch (err) {
-        console.log(`Error: ` + err);
-    }
-})
-
-// Removing the login method as signin method is used now.
-// app.post("/login", async (req, res) => {
-//     try {
-//         const username = req.body.username;
-//         const password = req.body.password;
-
-//         const useremail = await User.findOne({ username: username });
-//         if (useremail.active == 1) {
-//             // console.log(`password by user is ${password}`);
-//             const isMatch = await bcrypt.compare(password, useremail.password);
-
-//             const token1 = await useremail.generateAuthToken();
-//             const token = token1[0];
-//             console.log(token);
-//             const exp_time1 = Number(process.env.EXPIRY_TIME);
-//             const exp_time = new Date(Date.now() + exp_time1);
-//             if (token != '') {
-//                 res.cookie('jwt', token, {
-//                     expires: exp_time,
-//                     httpOnly: true
-//                 });
-//             }
-//             if (isMatch) {
-//                 res.status(201).send(token1[1]);
-//             }
-//             else {
-//                 res.send(`Wrong password`);
-//             }
-//         }
-//         else {
-//             res.send(`Please activate the acc first`);
-//         }
-
-//     }
-//     catch (e) {
-//         res.status(400).send("Invalid Username")
-//     }
-// })
 app.post("/signin", async (req, res) => {
     try {
         const username = req.body.username;
@@ -211,86 +127,62 @@ app.post("/signin", async (req, res) => {
     }
 })
 
-app.post("/user", email, async (req, res) => {
-    // app.post("/user", async (req, res) => {
+//Logout method is removed as it is being handled by the front end
+// app.post("/logout", auth, async (req, res) => {
+//     try {
+//         //console.log(req.user);
+//         req.user.tokens = [];
+//         res.clearCookie("jwt");
+//         //console.log('logged out');
+//         await req.user.save();
+//         res.send('you have been logged out');
+//     }
+//     catch (error) {
+//         res.status(500).send(error);
+//     }
+// });
+
+app.post("/forgotpassword", async (req, res) => {
+    const uemail = req.body.email;
+
+    const resetToken = crypto.randomBytes(20).toString('hex');
+    const user = await User.findOneAndUpdate({ email: uemail }, { resetToken: resetToken });
+
+    var email_content = `<h1>Reset Password</h1>
+        <h2>Hello there!</h2>
+        <p>Reset your password by clicking down below!</p><br>
+        <a href=http://localhost:3000/resetpassword/${user.username}/${resetToken}> Click here</a>`;
+
+    emailsender.sendemail(uemail, email_content);
+
+    res.send(`Please check your email for a link to reset password!`);
+})
+
+app.post("/resetpassword/:user/:token", async (req, res) => {
     try {
-        // const password = req.body.password;
-        // const cpassword = req.body.confirmpassword;
-        // const emailid = req.body.email;
-        // const username = req.body.username;
-        console.log('here');
-        const { password, cpassword, emailid, username } = req.body;
-        if (password === cpassword) {
-            const characters = '0123456789abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ';
-            var confirmationCode = '';
-            for (let i = 0; i < 25; i++) {
-                confirmationCode += characters[Math.floor(Math.random() * characters.length)];
+        let user = (req.params.user);
+        let token = (req.params.token);
+        const foundUser = await User.findOne({ username: user });
+        if (token == foundUser.resetToken) {
+
+            const newpass = req.body.password;
+            const cnewpass = req.body.confirmpassword;
+            if (newpass == cnewpass) {
+                const pass = await bcrypt.hash(newpass, 10);
+                await User.findOneAndUpdate({ username: user }, { password: pass, tokens: [] });
+                // console.log(res);
+                res.status(200).send(`Password updated!`);
             }
-
-            var pwd = req.body.password;
-            const date = new Date();
-            const registerUser = new User({
-                username: req.body.username,
-                password: pwd,
-                confirmpassword: pwd,
-                phone: req.body.phone,
-                email: req.body.email,
-                confirmationCode: confirmationCode
-            })
-            // console.log(registerUser);
-
-            //remove comments from here
-            // async function main() {
-            let testAccount = await nodemailer.createTestAccount();
-
-            var transporter = nodemailer.createTransport({
-                host: process.env.EMAIL_HOST,
-                name: process.env.EMAIL_NAME,
-                port: process.env.EMAIL_PORT,
-                type: process.env.EMAIL_TYPE,
-                auth: {
-                    user: process.env.EMAIL_USER,
-                    pass: process.env.EMAIL_PASSWD
-                }
-            });
-
-            var email_content = `<h1>Email Confirmation</h1>
-                <h2>Hello ${username}!</h2>
-                <p>Thank you for subscribing. Please confirm your email by clicking on the following link</p><br>
-                <a href=http://localhost:3000/confirm/${username}/${confirmationCode}> Click here</a>`;
-            let mailOptions = {
-                from: process.env.EMAIL_FROM,
-                to: emailid,
-                subject: "Test Welcome",
-                html: email_content,
+            else {
+                res.send('Passwords do not match');
             }
-
-            transporter.sendMail(mailOptions, function (err, data) {
-                if (err) {
-                    console.log('email could not be sent');
-                }
-                else {
-                    console.log('email sent');
-                }
-            });
-
-            // }
-
-            // main().catch(console.error);
-            //email trial ends
-
-            //remove comments till here
-
-
-            const registered = await registerUser.save();
-            res.status(201).send(`User Created Successfully!
-            Please activate account using link received in your inbox!`);
-        } else {
-            res.send("Passwords do not match");
+        }
+        else {
+            res.send('Wrong Token');
         }
     }
-    catch (error) {
-        res.status(400).send(error);
+    catch (err) {
+        console.log(`Error: ` + err);
     }
 })
 
@@ -313,7 +205,20 @@ app.get("/allauthors", async (req, res) => {
     try {
         const allAuthors = await Author.find();
         res.status(200).send(allAuthors);
-        console.log(allAuthors);
+    }
+    catch (err) {
+        console.log(`Error: ${err}`);
+        res.status(400).send(err);
+    }
+})
+
+app.patch("/changeAuthorName", async (req, res) => {
+    try {
+        const { old_name, new_name } = req.body;
+        const newDocument = await Author.findOneAndUpdate({ name: old_name }, { name: new_name });
+        if (newDocument) {
+            res.status(200).send(`Changed`);
+        }
     }
     catch (err) {
         console.log(`Error: ${err}`);
@@ -421,20 +326,6 @@ app.post("/searchbooks", async (req, res) => {
     catch (err) {
         res.status(400).send(err);
         console.log(`Error: ${err}`);
-    }
-})
-
-app.patch("/changeAuthorName", async (req, res) => {
-    try {
-        const { old_name, new_name } = req.body;
-        const newDocument = await Author.findOneAndUpdate({ name: old_name }, { name: new_name });
-        if (newDocument) {
-            res.status(200).send(`Changed`);
-        }
-    }
-    catch (err) {
-        console.log(`Error: ${err}`);
-        res.status(400).send(err);
     }
 })
 
